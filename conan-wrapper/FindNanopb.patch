@@ -1,0 +1,102 @@
+--- extra/FindNanopb.cmake	2021-01-21 09:18:54.399455300 +0000
++++ extra/FindNanopb_new.cmake	2021-01-21 09:19:35.811000000 +0000
+@@ -118,6 +118,8 @@
+ #
+ #=============================================================================
+ 
++# based on the version of protoc it might be necessary to add "/${FIL_PATH_REL}" currently dealt with in #516
++set(NANOPB_OUT "${CMAKE_CURRENT_BINARY_DIR}/nanopb")
+ 
+ function(NANOPB_GENERATE_CPP SRCS HDRS)
+   cmake_parse_arguments(NANOPB_GENERATE_CPP "" "RELPATH" "" ${ARGN})
+@@ -212,9 +214,9 @@
+       set(FIL_PATH_REL ".")
+     endif()
+ 
+-    list(APPEND ${SRCS} "${CMAKE_CURRENT_BINARY_DIR}/${FIL_PATH_REL}/${FIL_WE}.pb.c")
+-    list(APPEND ${HDRS} "${CMAKE_CURRENT_BINARY_DIR}/${FIL_PATH_REL}/${FIL_WE}.pb.h")
+-
++    list(APPEND ${SRCS} "${NANOPB_OUT}/${FIL_PATH_REL}/${FIL_WE}.pb.c")
++    list(APPEND ${HDRS} "${NANOPB_OUT}/${FIL_PATH_REL}/${FIL_WE}.pb.h")
++    
+     set(NANOPB_PLUGIN_OPTIONS)
+     set(NANOPB_OPTIONS_DIRS)
+ 
+@@ -252,9 +254,7 @@
+         set(NANOPB_PLUGIN_OPTIONS "${NANOPB_PLUGIN_OPTIONS} ${NANOPB_OPTIONS}")
+     endif()
+ 
+-    # based on the version of protoc it might be necessary to add "/${FIL_PATH_REL}" currently dealt with in #516
+-    set(NANOPB_OUT "${CMAKE_CURRENT_BINARY_DIR}")
+-
++    
+     # We need to pass the path to the option files to the nanopb plugin. There are two ways to do it.
+     # - An older hacky one using ':' as option separator in protoc args preventing the ':' to be used in path.
+     # - Or a newer one, using --nanopb_opt which requires a version of protoc >= 3.6
+@@ -274,8 +274,8 @@
+     endif()
+ 
+     add_custom_command(
+-      OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${FIL_PATH_REL}/${FIL_WE}.pb.c"
+-             "${CMAKE_CURRENT_BINARY_DIR}/${FIL_PATH_REL}/${FIL_WE}.pb.h"
++      OUTPUT "${NANOPB_OUT}/${FIL_PATH_REL}/${FIL_WE}.pb.c"
++             "${NANOPB_OUT}/${FIL_PATH_REL}/${FIL_WE}.pb.h"
+       COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
+       ARGS -I${GENERATOR_PATH} -I${GENERATOR_CORE_DIR}
+            -I${CMAKE_CURRENT_BINARY_DIR} ${_nanopb_include_path}
+@@ -313,37 +313,12 @@
+                          ${CMAKE_CURRENT_LIST_DIR}/.. ABSOLUTE)
+ endif()
+ 
+-# Find the include directory
+-find_path(NANOPB_INCLUDE_DIRS
+-    pb.h
+-    PATHS ${NANOPB_SRC_ROOT_FOLDER}
+-    NO_CMAKE_FIND_ROOT_PATH
+-)
+-mark_as_advanced(NANOPB_INCLUDE_DIRS)
+-
+-# Find nanopb source files
+-set(NANOPB_SRCS)
+-set(NANOPB_HDRS)
+-list(APPEND _nanopb_srcs pb_decode.c pb_encode.c pb_common.c)
+-list(APPEND _nanopb_hdrs pb_decode.h pb_encode.h pb_common.h pb.h)
+-
+-foreach(FIL ${_nanopb_srcs})
+-  find_file(${FIL}__nano_pb_file NAMES ${FIL} PATHS ${NANOPB_SRC_ROOT_FOLDER} ${NANOPB_INCLUDE_DIRS} NO_CMAKE_FIND_ROOT_PATH)
+-  list(APPEND NANOPB_SRCS "${${FIL}__nano_pb_file}")
+-  mark_as_advanced(${FIL}__nano_pb_file)
+-endforeach()
+-
+-foreach(FIL ${_nanopb_hdrs})
+-  find_file(${FIL}__nano_pb_file NAMES ${FIL} PATHS ${NANOPB_INCLUDE_DIRS} NO_CMAKE_FIND_ROOT_PATH)
+-  mark_as_advanced(${FIL}__nano_pb_file)
+-  list(APPEND NANOPB_HDRS "${${FIL}__nano_pb_file}")
+-endforeach()
+-
+ # Find the protoc Executable
+ find_program(PROTOBUF_PROTOC_EXECUTABLE
+     NAMES protoc
+     DOC "The Google Protocol Buffers Compiler"
+     PATHS
++    ${CONAN_BIN_DIRS_NANOPB}/protoc
+     ${PROTOBUF_SRC_ROOT_FOLDER}/vsprojects/Release
+     ${PROTOBUF_SRC_ROOT_FOLDER}/vsprojects/Debug
+     ${NANOPB_SRC_ROOT_FOLDER}/generator-bin
+@@ -356,6 +331,7 @@
+     NAMES nanopb_generator.py
+     DOC "nanopb generator source"
+     PATHS
++    ${CONAN_BIN_DIRS_NANOPB}
+     ${NANOPB_SRC_ROOT_FOLDER}/generator
+     NO_CMAKE_FIND_ROOT_PATH
+ )
+@@ -363,8 +339,6 @@
+ 
+ include(FindPackageHandleStandardArgs)
+ find_package_handle_standard_args(Nanopb DEFAULT_MSG
+-  NANOPB_INCLUDE_DIRS
+-  NANOPB_SRCS NANOPB_HDRS
+   NANOPB_GENERATOR_SOURCE_DIR
+   PROTOBUF_PROTOC_EXECUTABLE
+   )
