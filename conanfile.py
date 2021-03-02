@@ -6,11 +6,9 @@ import shutil
 import pip
 from os import path
 
-project_version=os.getenv("PROJECT_VERSION")
 protobuf_version="3.14.0"
 class NanoPbConan(ConanFile):
     name = "nanopb"
-    version = f"{project_version}"
     license = "zlib"
     url = "https://jpa.kapsi.fi/nanopb/"
     description = "Protocol Buffers with small code size"
@@ -39,7 +37,7 @@ class NanoPbConan(ConanFile):
             if hasattr(self,"settings_build"):
                 os = self.settings_build.os
             else:
-                raise ConanInvalidConfiguration("OS: Only new Cross Compiling method is allowed!")
+                os = self.settings.os
         return os
     
     def getBuildArch(self):
@@ -48,7 +46,7 @@ class NanoPbConan(ConanFile):
             if hasattr(self,"settings_build"):
                 arch = self.settings_build.arch
             else:
-                raise ConanInvalidConfiguration("Arch: Only new Cross Compiling method is allowed!")
+                arch = "x86_64"
         return arch
 
     def getTargetArch(self):
@@ -95,7 +93,7 @@ class NanoPbConan(ConanFile):
         cmake.definitions["nanopb_BUILD_RUNTIME"]=  self.options.runtime
         cmake.definitions["nanopb_BUILD_GENERATOR"]=  self.options.generator
         cmake.definitions["nanopb_MSVC_STATIC_RUNTIME"]=  self.options.msvc_static_libs
-        cmake.configure(source_folder=path.join(self.source_folder, "conan-wrapper"))
+        cmake.configure(source_folder=path.join(self.source_folder, "conan/wrapper"))
         return cmake
 
     def build(self):
@@ -103,7 +101,12 @@ class NanoPbConan(ConanFile):
             os.environ["PATH"] += os.pathsep + f"{self.build_folder}/protoc/bin"
         cmake = self.configure_cmake()
         cmake.build()
-        
+
+    def find_proto_folder(self):
+        for root, dirs, files in os.walk(f"{self.package_folder}/lib", topdown=False):
+            for name in dirs:
+                if "proto" in name:
+                    return f"{root}/{name}"
 
     def package(self):
         self.copy("pb*.h", dst="include", keep_path=False)
@@ -114,8 +117,12 @@ class NanoPbConan(ConanFile):
             cmake.install()
             if self.checkInstallProtocSupport():
                 self.copy("*", src="protoc/bin", dst="bin/protoc", keep_path=False)
-                tools.patch(base_path=f"{self.package_folder}/cmake", patch_file=f"{self.source_folder}/conan-wrapper/FindNanopb.patch", strip=1)
-                shutil.move(src=f"{self.package_folder}/lib/python3/dist-packages/proto",dst=f"{self.package_folder}/bin")
+                tools.patch(base_path=f"{self.package_folder}/cmake", patch_file=f"{self.source_folder}/conan/patch/FindNanopb.patch", strip=1)
+                os.system(f"ls {self.package_folder}/lib/python3.7/site-packages")
+                MAIN_DIR = f"{self.package_folder}/lib"
+                name = "proto"
+                proto_path = self.find_proto_folder()
+                shutil.move(src=f"{proto_path}",dst=f"{self.package_folder}/bin")
                 self.copy("*", src="protoc/include", dst=f"{self.package_folder}/bin/proto", keep_path=True)
 
     def package_info(self):
